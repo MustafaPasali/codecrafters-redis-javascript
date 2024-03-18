@@ -1,14 +1,18 @@
 var args = process.argv.slice(2);
 let port;
+let role = "master";
 if (args.includes("--port")) {
-    port = args[args.indexOf("--port") + 1]
-    if (port) {
-        port = parseInt(port)
-    }
+    port = parseInt(args[args.indexOf("--port") + 1])
 }
-if (!port) {
+else {
     port = 6379
 }
+if (args.includes("--replicaof")) {
+    master_host = args[args.indexOf("--replicaof") + 1]
+    master_port = parseInt(args[args.indexOf("--replicaof") + 2])
+    role = "slave"
+}
+
 const net = require("net");
 const { it } = require("node:test");
 
@@ -151,7 +155,7 @@ function parse(data) {
             resp = dump(value, "bulkString")
         }
         else if (element[0].toLowerCase() == "info") {
-            resp = dump("role:master", "bulkString")
+            resp = dump("role:" + role, "bulkString")
         }
         return resp
     }
