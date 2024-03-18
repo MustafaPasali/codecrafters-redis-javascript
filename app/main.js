@@ -150,6 +150,9 @@ function parse(data) {
             }
             resp = dump(value, "bulkString")
         }
+        else if (element[0].toLowerCase() == "info") {
+            resp = dump("role:master", "bulkString")
+        }
         return resp
     }
 }
