@@ -1,4 +1,5 @@
 const net = require("net");
+const { it } = require("node:test");
 
 const crlf = "\r\n"
 
@@ -12,7 +13,8 @@ const operator = {
 
 const memory = {};
 
-function parseData(data) {
+function load(data) {
+    data = data.toString()
     let dataType = data.charAt(0)
     let element;
     let elementLength = "";
@@ -44,7 +46,7 @@ function parseData(data) {
         while (true) {
             data = data.substring(start)
             if (data) {
-                [innerElement, innerElementType, innerElementLenght] = parseData(data)
+                [innerElement, innerElementType, innerElementLenght] = load(data)
                 element.push(innerElement)
                 if (innerElementLenght) {
                     start = 1 + innerElementLenght.length + crlf.length + innerElement.length + crlf.length
@@ -61,36 +63,88 @@ function parseData(data) {
     return [element, elementType, elementLength]
 }
 
-const server = net.createServer((connection) => {
-  connection.on("data", data => {
-    let element; let elementType; let elementLength;
-    [element, elementType, elementLength] = parseData(data.toString())
-    if (elementType == "array") {
-        if (element[0].toLowerCase() == "ping") {
-            resp = "+" + "PONG" + crlf
-            connection.write(resp)
+function dump(element, elemenType) {
+    let data;
+    if (elemenType == "string") {
+        data = operator.string + element + crlf
+    }
+    else if (elemenType == "error") {
+        data = operator.error + element + crlf
+    }
+    else if (elemenType == "integer") {
+        data = operator.integer + element + crlf
+    }
+    else if (elemenType == "bulkString") {
+        if (element) {
+            data = operator.bulkString + element.length.toString() + crlf + element + crlf
         }
-        else if (element[0].toLowerCase() == "echo") {
-            resp = "$" + element[1].length.toString() + crlf + element[1] + crlf
-            connection.write(resp)
-        }
-        else if (element[0].toLowerCase() == "set") {
-            memory[element[1]] = element[2]
-            resp = "+" + "OK" + crlf
-            connection.write(resp)
-        }
-        else if (element[0].toLowerCase() == "get") {
-            value = memory[element[1]]
-            if (value) {
-                resp = "$" + value.length.toString() + crlf + value + crlf
-            }
-            else {
-                resp = "$-1\r\n"
-            }
-            connection.write(resp)
+        else {
+            data = operator.bulkString + '-1' + crlf
         }
     }
-  })
+    else if (elemenType == "array") {
+        data = operator.array + element.length.toString() + crlf
+        for (let i = 0; i < element.length; i++) {
+            let item = element[i];
+            let innerData;
+            if (typeof item == "string") {
+                innerData = dump(item, "string")
+            }
+            else if (typeof item == "number") {
+                innerData = dump(item, "integer")
+            }
+            else if (typeof item == "object") {
+                innerData = dump(item, "array")
+            }
+            data = data + innerData
+        }
+    }
+    return data
+}
+
+function parse(data) {
+    let element; let elementType; let elementLength;
+    [element, elementType, elementLength] = load(data)
+    if (elementType == "array") {
+        let resp;
+        if (element[0].toLowerCase() == "ping") {
+            resp = dump("PONG", "string")
+        }
+        else if (element[0].toLowerCase() == "echo") {
+            resp = dump(element[1], "bulkString")
+            
+        }
+        else if (element[0].toLowerCase() == "set") {
+            memory[element[1]] = {};
+            memory[element[1]]["value"] = element[2]
+            if (element[3]) {
+                if (element[3].toLowerCase() == "px") {
+                    memory[element[1]]["expire"] = Date.now() + parseInt(element[4])
+                }
+            }
+            resp = dump("OK", "string")
+        }
+        else if (element[0].toLowerCase() == "get") {
+            let elementData = memory[element[1]];
+            let value = null;
+            if (elementData) {
+                value = elementData["value"];
+                let expire = elementData["expire"];
+                if (expire) {
+                    let now = Date.now()
+                    if (expire < now) {
+                        value = null
+                    }
+                }
+            }
+            resp = dump(value, "bulkString")
+        }
+        return resp
+    }
+}
+
+const server = net.createServer((connection) => {
+  connection.on("data", data => connection.write(parse(data)))
 });
 
 server.listen(6379, "127.0.0.1");
