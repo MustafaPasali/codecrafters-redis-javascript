@@ -1,3 +1,14 @@
+var args = process.argv.slice(2);
+let port;
+if (args.includes("--port")) {
+    port = args[args.indexOf("--port") + 1]
+    if (port) {
+        port = parseInt(port)
+    }
+}
+if (!port) {
+    port = 6379
+}
 const net = require("net");
 const { it } = require("node:test");
 
@@ -147,4 +158,4 @@ const server = net.createServer((connection) => {
   connection.on("data", data => connection.write(parse(data)))
 });
 
-server.listen(6379, "127.0.0.1");
+server.listen(port, "127.0.0.1");
