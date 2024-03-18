@@ -10,6 +10,8 @@ const operator = {
     array: '*'
 }
 
+const memory = {};
+
 function parseData(data) {
     let dataType = data.charAt(0)
     let element;
@@ -70,6 +72,21 @@ const server = net.createServer((connection) => {
         }
         else if (element[0].toLowerCase() == "echo") {
             resp = "$" + element[1].length.toString() + crlf + element[1] + crlf
+            connection.write(resp)
+        }
+        else if (element[0].toLowerCase() == "set") {
+            memory[element[1]] = element[2]
+            resp = "+" + "OK" + crlf
+            connection.write(resp)
+        }
+        else if (element[0].toLowerCase() == "get") {
+            value = memory[element[1]]
+            if (value) {
+                resp = "$" + value.length.toString() + crlf + value + crlf
+            }
+            else {
+                resp = "$-1\r\n"
+            }
             connection.write(resp)
         }
     }
