@@ -1,6 +1,9 @@
 var args = process.argv.slice(2);
 let port;
 let role = "master";
+let masterReplId = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb";
+let masterReplOffset = "0"
+
 if (args.includes("--port")) {
     port = parseInt(args[args.indexOf("--port") + 1])
 }
@@ -155,7 +158,14 @@ function parse(data) {
             resp = dump(value, "bulkString")
         }
         else if (element[0].toLowerCase() == "info") {
-            resp = dump("role:" + role, "bulkString")
+            let info = "role:" + role
+            if (element[1]) {
+                if (element[1].toLowerCase() == "replication") {
+                    info = info + crlf + "master_replid:" + masterReplId
+                    info = info + crlf + "master_repl_offset:" + masterReplOffset
+                }
+            }
+            resp = dump(info, "bulkString")
         }
         return resp
     }
